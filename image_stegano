@@ -1,0 +1,180 @@
+The Encoder
+% Encoder & Embedder
+function imagevec = stegano(image, encoded)
+    [len1, len2] = size(image);
+    bits = 1;
+    done = false;
+
+    for i = 1:len1
+        for j = 1:len2
+            if bits <= length(encoded) && image(i,j) == 0
+                image(i,j) = encoded(bits);
+                bits = bits + 1;
+            end
+            if bits > length(encoded)
+                done = true;
+                break;
+            end
+        end
+        if done
+            break;
+        end
+    end
+
+    imagevec = image;
+end
+
+
+% Converts binary to decimal number
+function dec = binary2dec(binary)
+    newbin = [];
+    for i = 1:length(binary)
+        newbin = [newbin,binary(i)];
+    end
+    len = length(newbin);
+    dec = 0;
+    for i = 1:length(newbin)
+        dec = dec + newbin(i)*(2^(len-i));
+    end
+end
+
+% Reading the image
+image = imread("newimage.jpg");
+image = im2gray(image);     % Convert to grayscale if needed
+image = double(image);      % Convert to double for block dct
+[x,y] = size(image);
+mask = zeros(x,y);
+
+
+mask(1:283,1:293) = 1;      % Low pass mask (Private keys)
+
+
+dct2D = @(block) dct(dct(block')');  % Dct computing object
+idct2D = @(block) idct(idct(block')');  %Idct computing object
+dct_coeffs = dct2D(image);
+dct_coeffs = mask.*dct_coeffs;          %Masking the dct coefficients
+binary = dn;
+dct_coeffs = stegano(dct_coeffs,binary); % Embedding the audio
+len = length(binary);
+newbinary = dec2bin(len);
+newbin = [];
+for i = 1:length(newbinary)
+    newbin = [newbin,str2num(newbinary(i))];
+end
+
+dct_coeffs(end,end-30+1,end) = 0;       %Embedding the length of the signal
+for i = 1:length(newbinary)
+    dct_coeffs(end,end-length(newbinary)+i) = str2num(newbinary(i));
+end
+
+reconstructed = idct2D(dct_coeffs);   % Reconstruct the stegano image
+
+% Show the original image
+imshow(uint8(image));    
+title("Original Image");
+
+
+% Show the reconstructed image
+new = uint8(reconstructed);
+imshow(uint8(reconstructed));
+title("Stegano Image");
+
+
+% Save the image
+t = Tiff('stegano.tiff', 'w');
+
+tagstruct.ImageLength = size(reconstructed,1);
+tagstruct.ImageWidth = size(reconstructed,2);
+tagstruct.SampleFormat = Tiff.SampleFormat.IEEEFP;  % Set sample format to floating point
+tagstruct.Photometric = Tiff.Photometric.MinIsBlack;
+tagstruct.BitsPerSample = 32; % 32 bits for float
+tagstruct.SamplesPerPixel = 1;
+tagstruct.PlanarConfiguration = Tiff.PlanarConfiguration.Chunky;
+t.setTag(tagstruct);
+
+t.write(single(reconstructed));  % Write as single-precision float
+t.close();
+
+
+%{
+newdct = dct2D(reconstructed);
+
+new1binary = dct_coeffs(end,end-30+1:end);
+
+dec = binary2dec(new1binary)
+answer = decsteg(newdct,150,300,new1binary);
+sound(answer,8000);
+%}  
+
+
+The Decoder
+% The decoding function
+function answer = decsteg(image,x,y,len)
+    [len1,len2] = size(image);
+    answer = [];
+    count = 0;
+    flag = 0;
+    for i = 1:len1
+        for j = 1:len2
+            if i < x
+                if j > y
+                    answer = [answer,image(i,j)];
+                    count = count + 1;
+                end
+            end
+            if i > x
+                answer = [answer,image(i,j)];
+                count = count+1;
+            end
+            if count == len
+                flag = 1;
+                break;
+            end
+        end
+        if flag == 1
+            break;
+        end
+    end    
+end
+
+% Dct and Idct computing blocks
+dct2D = @(block) dct(dct(block')');
+idct2D = @(block) idct(idct(block')');
+newphoto = imread("stegano.tiff");
+imshow(uint8(newphoto))
+
+
+% Retrieve the data
+newdct1 = dct2D(newphoto);
+lengthmsg = newdct1(end,end-30+1:end)
+function dec = binary2dec(binary)
+    dec = 0;
+    len = length(binary);
+    for i = 1:length(binary)
+        binary(i) = round(binary(i));
+    end
+    for i = 1:length(binary)
+        dec = dec + binary(i)*(2^(len-i));
+    end
+end
+newdec = binary2dec(lengthmsg);
+answer = decsteg(newdct1,150,350,nearewdec);
+
+
+
+
+Audio Generating Code
+[audio, fs] = audioread("sample1.wav");
+audio = audio(1:end,1)
+dn = downsample(audio, 2);
+du = upsample(dn, 2);
+stft(audio, fs)
+%[b, t, info] = stftmag2sig(abs(x), size(x,1));
+
+
+%b = abs(x);
+%c = reshape(b, [], 1);
+%norm = c/max(c);
+length(audio)
+length(du)
+length(dn)   % -> To be used for embedding in the image
